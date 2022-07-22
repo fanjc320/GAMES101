@@ -78,11 +78,14 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
                   0,zNear/top,0,0,
                   0,0,(zNear+zFar)/(zNear-zFar),(2*zNear*zFar)/(zFar-zNear),
                   0,0,1,0;*/
+
+
+    
     Eigen::Matrix4f m;
     m << zNear, 0, 0, 0,
         0, zNear, 0, 0,
         0, 0, zNear + zFar, -zNear * zFar,
-        0, 0, 1, 0;////透视投影矩阵
+        0, 0, 1, 0;////透视投影矩阵,即透视转正交
 
     float halve = eye_fov / 2 * MY_PI / 180;
     float top = tan(halve) * zNear;
@@ -104,6 +107,13 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
         0, 0, 0, 1;
 
     projection = n * p * m;//这里是左乘所以是先进行透视转正交，然后位移，然后规范化
+
+//https://zhuanlan.zhihu.com/p/463027517  显示不对....
+//    projection << 2 * zNear / (right - left), 0, 0, 0,
+//        0, 2 * zNear / (top - bottom), 0, 0,
+//        (left + right) / (left - right), (bottom + top) / (bottom - top), (zFar + zNear) / (zFar - zNear), 1,
+//        0, 0, 2 * zNear * zFar / (zNear - zFar), 0;
+                    
 
     return projection;
 }
