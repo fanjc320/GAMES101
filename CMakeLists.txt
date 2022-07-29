@@ -25,9 +25,9 @@ set( Eigen3_DIR  "D:/software/eigen-3.4.0/build")
 include_directories(include ${Eigen3_DIR})
 
 
-add_subdirectory(00)
-add_subdirectory(01)
-install(TARGETS 00 01 DESTINATION  output)
+add_subdirectory(03)
+add_subdirectory(02)
+install(TARGETS 03 02 DESTINATION  output)
 #add_subdirectory(02)
 #add_subdirectory(03)
 #add_subdirectory(04)

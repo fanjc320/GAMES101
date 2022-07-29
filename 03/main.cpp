@@ -132,12 +132,12 @@ Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
         Vector3f ambient(0,0,0);
         Vector3f light_dir =  (light.position -point).normalized();
         
-        for (size_t i = 0; i < 3; i++)
+        for (size_t i = 0; i < 3; i++)//rgb, 因为kd是3维的变量，所以每一维都要分别计算
         {
             Vector3f h = (view_dir + light_dir).normalized(); // half
             float intensity = light.intensity[i]/rr;
-            diffsue[i] = kd[i] * intensity * std::max(0.0f,normal.dot(light_dir));
-            specular[i] = ks[i] * intensity * std::pow(std::max(0.0f,normal.dot(h)),p);
+            diffsue[i] = kd[i] * intensity * std::max(0.0f,normal.dot(light_dir));//bulin-phone
+            specular[i] = ks[i] * intensity * std::pow(std::max(0.0f,normal.dot(h)),p);//p次方，让cos更陡峭，也就是specular高亮面积更小
             ambient[i] = amb_light_intensity[i] * ka[i];
         }
         result_color += diffsue;     

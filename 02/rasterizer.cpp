@@ -64,6 +64,7 @@ static bool insideTriangle(int x, int y, const Vector3f* _v)
     return (z1 > 0 && z2 >0 && z3 > 0) ||  (z1 < 0 && z2 <0 && z3 < 0);
 }
 
+//?????
 static std::tuple<float, float, float> computeBarycentric2D(float x, float y, const Vector3f* v)
 {
     float c1 = (x*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*y + v[1].x()*v[2].y() - v[2].x()*v[1].y()) / (v[0].x()*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*v[0].y() + v[1].x()*v[2].y() - v[2].x()*v[1].y());
@@ -78,31 +79,31 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
     auto& ind = ind_buf[ind_buffer.ind_id];
     auto& col = col_buf[col_buffer.col_id];
 
-    float f1 = (50 - 0.1) / 2.0;
+    float f1 = (50 - 0.1) / 2.0;//????
     float f2 = (50 + 0.1) / 2.0;
 
     Eigen::Matrix4f mvp = projection * view * model;
-    for (auto& i : ind)
+    for (auto& i : ind)//所有的三角形???
     {
         Triangle t;
-        Eigen::Vector4f v[] = {
+        Eigen::Vector4f v[] = {//这里是3个，是三角形的三个顶点
                 mvp * to_vec4(buf[i[0]], 1.0f),
                 mvp * to_vec4(buf[i[1]], 1.0f),
                 mvp * to_vec4(buf[i[2]], 1.0f)
         };
-        //Homogeneous division
+        //Homogeneous division 齐次坐标归一化
         for (auto& vec : v) {
             vec /= vec.w();
         }
-        //Viewport transformation
+        //Viewport transformation 屏幕坐标?????
         for (auto & vert : v)
         {
-            vert.x() = 0.5*width*(vert.x()+1.0);
+            vert.x() = 0.5*width*(vert.x()+1.0);//???????
             vert.y() = 0.5*height*(vert.y()+1.0);
             vert.z() = vert.z() * f1 + f2;
         }
 
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 3; ++i)//???????
         {
             t.setVertex(i, v[i].head<3>());
             t.setVertex(i, v[i].head<3>());
@@ -153,11 +154,10 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     {
         for (int y = (int)aabb_miny; y < aabb_maxy; y++)
         {
-
             if(!insideTriangle(x,y,t.v)) continue;
             // If so, use the following code to get the interpolated z value.
             auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
-            float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+            float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());//reciprocal 倒数
             float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
             z_interpolated *= w_reciprocal;
 
@@ -165,7 +165,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
             
             if(z_interpolated >= depth_buf[buf_index]) continue;
 
-            depth_buf[buf_index] = z_interpolated;
+            depth_buf[buf_index] = z_interpolated;//??????
 
             set_pixel(Vector3f(x,y,1),t.getColor());
         }
@@ -181,6 +181,105 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
     // TODO : set the current pixel (use the set_pixel function) to the color of the triangle (use getColor function) if it should be painted.
 }
+
+//Screen space rasterization
+//第一步 确定bounding box
+//给定一个三角形，我们先要扫描出这个三角占据了哪些格子(像素单元)，即定义bounding box，取得这个三角形的x和y轴上的边界值，使得这个bounding box尽可能的小，但又必须包裹住这个三角形。
+//第二步 扫描bounding box
+//逐一扫描这个bounding box内的所有单元，以每个单元的中心位置代替此单元，将坐标传入insideTriangle函数中，如果不在，则扫描下一个，如果在，则以三角形三点做插值得到这个中心点的z值, 
+//进一步判断，这个z值是否比深度缓存中对应位置的值要小，不小则不处理，小则替换深度缓存中的值为当前值。随后设置这个单元的颜色值。
+//这里很容易就能想到，如果这个单元尺寸越小，就能更加精确的确定边界。也就是MSAA，多重采样抗锯齿，这个并不是从物理上将单元切割成更小的，而是将一个单元看成多个单元组合，然后对这个更小单元进行采样。
+//每个单元的尺寸越小，成像的边界锯齿效果就越虚，即成像效果越好，但这样会使效率降低，将一个单元切割成2x2的四个小单元，会使原来一个单位的工作量升至四个单位的工作量。
+void rst::rasterizer::rasterize_triangle1(const Triangle& t) {
+    auto v = t.toVector4();//这里是把三角形结构体换成三个顶点如（x1,y1,z1,1） 
+               //还记得嘛？最后的1表示它是一个点,用于齐次坐标
+
+    //bounding box
+    float min_x = std::min(v[0][0], std::min(v[1][0], v[2][0]));
+    float max_x = std::max(v[0][0], std::max(v[1][0], v[2][0]));
+    float min_y = std::min(v[0][1], std::min(v[1][1], v[2][1]));
+    float max_y = std::max(v[0][1], std::max(v[1][1], v[2][1]));
+
+    min_x = static_cast<int>(std::floor(min_x));
+    min_y = static_cast<int>(std::floor(min_y));
+    max_x = static_cast<int>(std::ceil(max_x));
+    max_y = static_cast<int>(std::ceil(max_y));
+
+    //左边界小数部分全部直接舍，右边界小数部分直接入，确保单元边界坐标都是整数，三角形一定在bounding box内。
+
+    bool MSAA = true;//MSAA是否启用
+
+    if (MSAA)
+    {
+        std::vector<Eigen::Vector2f> pos
+        {                               //对一个像素分割四份 当然你还可以分成4x4 8x8等等甚至你还可以为了某种特殊情况设计成不规则的图形来分割单元
+            {0.25,0.25},                //左下
+            {0.75,0.25},                //右下
+            {0.25,0.75},                //左上
+            {0.75,0.75}                 //右上
+        };
+        for (int i = min_x; i <= max_x; ++i)
+        {
+            for (int j = min_y; j <= max_y; ++j)
+            {
+                int count = 0;
+                float minDepth = FLT_MAX;
+                for (int MSAA_4 = 0; MSAA_4 < 4; ++MSAA_4)
+                {
+                    if (insideTriangle(static_cast<float>(i + pos[MSAA_4][0]), static_cast<float>(j + pos[MSAA_4][1]), t.v))
+                    {
+                        auto [alpha, beta, gamma] = computeBarycentric2D(static_cast<float>(i + pos[MSAA_4][0]), static_cast<float>(j + pos[MSAA_4][1]), t.v);
+                        float w_reciprocal = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                        float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                        z_interpolated *= w_reciprocal;
+
+                        minDepth = std::min(minDepth, z_interpolated);
+                        ++count;
+                    }
+                }
+                if (count)
+                {
+                    if (depth_buf[get_index(i, j)] > minDepth)
+                    {
+                        depth_buf[get_index(i, j)] = minDepth;//更新深度
+
+                        Eigen::Vector3f color = t.getColor() * (count / 4.0);//对颜色进行平均，使得边界更平滑，也是一种模糊的手段
+                        Eigen::Vector3f point;
+                        point << static_cast<float>(i), static_cast<float>(j), minDepth;
+                        set_pixel(point, color);//设置颜色
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int i = min_x; i <= max_x; ++i)
+        {
+            for (int j = min_y; j <= max_y; ++j)
+            {
+                if (insideTriangle(static_cast<float>(i + 0.5), static_cast<float>(j + 0.5), t.v))
+                {
+                    auto [alpha, beta, gamma] = computeBarycentric2D(static_cast<float>(i + 0.5), static_cast<float>(j + 0.5), t.v);
+                    float w_reciprocal = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                    float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                    z_interpolated *= w_reciprocal;
+
+                    if (depth_buf[get_index(i, j)] > z_interpolated)
+                    {
+                        depth_buf[get_index(i, j)] = z_interpolated;//更新深度
+                        Eigen::Vector3f color = t.getColor();
+                        Eigen::Vector3f point;
+                        point << static_cast<float>(i), static_cast<float>(j), z_interpolated;
+                        set_pixel(point, color);//设置颜色
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m)
 {

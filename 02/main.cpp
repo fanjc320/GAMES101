@@ -112,7 +112,7 @@ int main(int argc, const char** argv)
         return 0;
     }
 
-    while(key != 27)
+    while(key != 27)//esc
     {
         r.clear(rst::Buffers::Color | rst::Buffers::Depth);
 
@@ -134,3 +134,33 @@ int main(int argc, const char** argv)
     return 0;
 }
 // clang-format on
+
+//openCV中convertTo的用法
+//convertTo函数一般用于CV_32s转为CV_8U：
+//原函数解析：
+//src.convertTo(dst, type, scale, shift)
+//缩放并转换到另外一种数据类型：
+//dst：目的矩阵；
+//type：需要的输出矩阵类型，或者更明确的，是输出矩阵的深度，如果是负值（常用 - 1）则输出矩阵和输入矩阵类型相同；
+//scale : 比例因子；
+//shift：将输入数组元素按比例缩放后添加的值；
+//
+//dst(i) = src(i)xscale + (shift, shift, …)
+//
+//如果scale = 1，shift = 0，则不进行比例缩放。
+//
+//场景应用一：
+//在应用分水岭算法分割图像时，标记图像为32位有符号整型CV_32S变量构成的矩阵markers（其中像素值有 - 1，1, 2，3……），由于imshow()函数无法显示，想要将标记图像显示出来必须转换其数据类型。
+//1、CV_32s转为CV_8U
+//
+//watershed(src, label_img);
+////显示图像
+//double maxVal = 0;
+//double minVal = 0;
+//minMaxLoc(label_img, &minVal, &maxVal);
+//Mat dst = Mat::zeros(src.size(), CV_8U);
+//label_img.convertTo(dst, CV_8U, 255.0 / (maxVal - minVal), 0);
+//imshow("marks", dst);
+//————————————————
+//版权声明：本文为CSDN博主「梦游城市」的原创文章，遵循CC 4.0 BY - SA版权协议，转载请附上原文出处链接及本声明。
+//原文链接：https ://blog.csdn.net/qq_43702097/article/details/105567290

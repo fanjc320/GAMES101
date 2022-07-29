@@ -297,6 +297,7 @@ namespace objl
         // Check to see if a Vector3 Point is within a 3 Vector3 Triangle
         bool inTriangle(Vector3 point, Vector3 tri1, Vector3 tri2, Vector3 tri3)
         {
+            //prism ¿‚æµ
             // Test to see if it is within an infinite prism that the triangle outlines.
             bool within_tri_prisim = SameSide(point, tri1, tri2, tri3) && SameSide(point, tri2, tri1, tri3)
                                      && SameSide(point, tri3, tri1, tri2);
